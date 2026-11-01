@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PIXEL FOREST: Night Owl</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+html,body{
+  height:100%;
+  overflow:hidden;
+  background:#05070f;
+  font-family:'Segoe UI', Arial, sans-serif;
+  color:#fff;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+}
+
+canvas{
+  display:block;
+  position:absolute;
+  inset:0;
+  z-index:1;
+  cursor:crosshair;
+}
+
+#ui-layer{
+  position:absolute;
+  inset:0;
+  z-index:10;
+  pointer-events:none;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:14px;
+}
+
+.top-panel{
+  width:100%;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  justify-content:center;
+  align-items:center;
+}
+
+.stat{
+  background:rgba(8,12,28,.72);
+  border:1px solid rgba(140,190,255,.22);
+  border-radius:12px;
+  padding:8px 14px;
+  font-size:15px;
+  font-weight:800;
+  letter-spacing:.5px;
+  backdrop-filter:blur(6px);
+  white-space:nowrap;
+  box-shadow:0 0 18px rgba(0,0,0,.25);
+}
+
+.stat span{
+  color:#8ee7ff;
+}
+
+.stat.time span{
+  color:#ffd36b;
+}
+
+.stat.found span{
+  color:#9dff9d;
+}
+
+.stat.score span{
+  color:#ffbf6b;
+}
+
+.bottom-hint{
+  text-align:center;
+  color:rgba(200,220,255,.55);
+  font-size:13px;
+  padding-bottom:4px;
+  text-shadow:0 2px 8px #000;
+}
+
+.menu-overlay{
+  position:absolute;
+  inset:0;
+  z-index:100;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:24px;
+  background:radial-gradient(circle at 50% 45%, rgba(20,30,70,.72), rgba(3,5,12,.96) 70%);
+  backdrop-filter:blur(8px);
+  pointer-events:auto;
+  visibility:visible;
+  opacity:1;
+  transition:opacity .25s ease;
+}
+
+.hidden{
+  visibility:hidden !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+h1{
+  font-size:min(12vw,64px);
+  letter-spacing:4px;
+  margin-bottom:10px;
+  color:#fff;
+  text-shadow:0 0 16px rgba(130,200,255,.55), 0 0 40px rgba(70,130,255,.25);
+}
+
+h2{
+  font-size:min(9vw,42px);
+  margin-bottom:12px;
+  color:#8ee7ff;
+  text-shadow:0 0 18px rgba(140,230,255,.45);
+}
+
+.lose h2{
+  color:#ff7b7b;
+  text-shadow:0 0 18px rgba(255,80,80,.45);
+}
+
+p{
+  max-width:620px;
+  color:#c8d6ff;
+  font-size:16px;
+  line-height:1.6;
+  margin-bottom:24px;
+}
+
+.stats-list{
+  list-style:none;
+  margin:0 0 24px;
+  font-size:18px;
+  color:#ddd;
+}
+
+.stats-list li{
+  margin:7px 0;
+}
+
+.stats-list span{
+  color:#8ee7ff;
+  font-weight:900;
+}
+
+.btn{
+  pointer-events:auto;
+  padding:15px 42px;
+  border:none;
+  outline:none;
+  border-radius:999px;
+  font-size:20px;
+  font-weight:900;
+  letter-spacing:1px;
+  color:#04101d;
+  background:linear-gradient(135deg,#8ee7ff,#5aa7ff);
+  box-shadow:0 10px 30px rgba(90,167,255,.35);
+  cursor:pointer;
+  transition:transform .18s ease, box-shadow .18s ease;
+}
+
+.btn:hover{
+  transform:translateY(-2px) scale(1.03);
+  box-shadow:0 14px 36px rgba(90,167,255,.45);
+}
+
+.btn:active{
+  transform:scale(.97);
+}
+
+.btn.warm{
+  color:#221100;
+  background:linear-gradient(135deg,#ffd36b,#ff9f43);
+  box-shadow:0 10px 30px rgba(255,159,67,.35);
+}
+
+.btn.red{
+  color:#fff;
+  background:linear-gradient(135deg,#ff6b6b,#c92a2a);
+  box-shadow:0 10px 30px rgba(255,80,80,.32);
+}
+
+@media(max-width:650px){
+  .stat{font-size:13px;padding:7px 10px}
+  p{font-size:14px}
+  .btn{font-size:17px;padding:13px 30px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="ui-layer">
+  <div class="top-panel">
+    <div class="stat">🌙 Ночь: <span id="levelVal">1</span></div>
+    <div class="stat found">🦉 Найдено: <span id="foundVal">0 / 0</span></div>
+    <div class="stat time">⏱ Время: <span id="timeVal">60</span></div>
+    <div class="stat score">⭐ Очки: <span id="scoreVal">0</span></div>
+  </div>
+
+  <div class="bottom-hint">
+    Води фонарик мышью или пальцем. Кликай / тапай по найденным предметам.
+  </div>
+</div>
+
+<!-- СТАРТОВОЕ МЕНЮ -->
+<div id="startMenu" class="menu-overlay">
+  <h1>NIGHT OWL</h1>
+  <p>
+    Наступила ночь в Pixel Forest. Возьми фонарик и найди всех спрятанных сов,
+    грибы, перья, жёлуди и ягоды, пока не кончилось время.
+  </p>
+  <button class="btn warm" id="btnStart">ВЫЙТИ В ЛЕС 🔦</button>
+</div>
+
+<!-- МЕНЮ ПОБЕДЫ УРОВНЯ -->
+<div id="winMenu" class="menu-overlay hidden">
+  <h2>НОЧЬ ПРОЙДЕНА </h2>
+  <ul class="stats-list">
+    <li>Уровень: <span id="winLevel">1</span></li>
+    <li>Бонус за время: <span id="winBonus">0</span></li>
+    <li>Всего очков: <span id="winScore">0</span></li>
+  </ul>
+  <button class="btn" id="btnNext">СЛЕДУЮЩАЯ НОЧЬ →</button>
+</div>
+
+<!-- МЕНЮ ПОРАЖЕНИЯ -->
+<div id="loseMenu" class="menu-overlay lose hidden">
+  <h2>ТЫ ПОТЕРЯЛСЯ В ТЕМНОТЕ 🌑</h2>
+  <ul class="stats-list">
+    <li>Достигнутая ночь: <span id="loseLevel">1</span></li>
+    <li>Очки: <span id="loseScore">0</span></li>
+  </ul>
+  <button class="btn red" id="btnRestart">ПОПРОБОВАТЬ СНОВА ↺</button>
+</div>
+
+<script>
+// ============================================================
+// AUDIO ENGINE
+// ============================================================
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function tone(freq, type = 'sine', dur = 0.15, vol = 0.1, delay = 0) {
+  if (!audioCtx) return;
+
+  const t = audioCtx.currentTime + delay;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.linearRampToValueAtTime(vol, t + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(t);
+  osc.stop(t + dur + 0.05);
+}
+
+const SFX = {
+  collect() {
+    tone(880, 'sine', 0.12, 0.10, 0);
+    tone(1320, 'sine', 0.16, 0.07, 0.06);
+  },
+  win() {
+    [523, 659, 784, 1046].forEach((f, i) => {
+      tone(f, 'triangle', 0.24, 0.09, i * 0.12);
+    });
+  },
+  lose() {
+    [420, 320, 220, 150].forEach((f, i) => {
+      tone(f, 'sawtooth', 0.28, 0.09, i * 0.16);
+    });
+  },
+  click() {
+    tone(650, 'square', 0.05, 0.04);
+  }
+};
+
+// ============================================================
+// CANVAS / SIZE
+// ============================================================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let W = window.innerWidth;
+let H = window.innerHeight;
+
+const PI2 = Math.PI * 2;
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+
+  if (!game.mouse.init) {
+    game.mouse.x = W / 2;
+    game.mouse.y = H / 2;
+    game.mouse.init = true;
+  } else {
+    game.mouse.x = Math.max(0, Math.min(W, game.mouse.x));
+    game.mouse.y = Math.max(0, Math.min(H, game.mouse.y));
+  }
+}
+
+window.addEventListener('resize', resize);
+
+// ============================================================
+// DOM
+// ============================================================
+const levelVal = document.getElementById('levelVal');
+const foundVal = document.getElementById('foundVal');
+const timeVal = document.getElementById('timeVal');
+const scoreVal = document.getElementById('scoreVal');
+
+const startMenu = document.getElementById('startMenu');
+const winMenu = document.getElementById('winMenu');
+const loseMenu = document.getElementById('loseMenu');
+
+const btnStart = document.getElementById('btnStart');
+const btnNext = document.getElementById('btnNext');
+const btnRestart = document.getElementById('btnRestart');
+
+const winLevel = document.getElementById('winLevel');
+const winBonus = document.getElementById('winBonus');
+const winScore = document.getElementById('winScore');
+
+const loseLevel = document.getElementById('loseLevel');
+const loseScore = document.getElementById('loseScore');
+
+// ============================================================
+// GAME STATE
+// ============================================================
+const game = {
+  playing: false,
+  rafId: null,
+  lastTime: 0,
+
+  level: 1,
+  score: 0,
+
+  time: 60,
+  maxTime: 60,
+
+  found: 0,
+  total: 0,
+
+  lightRadius: 150,
+
+  mouse: {
+    x: 0,
+    y: 0,
+    init: false
+  },
+
+  objects: [],
+  particles: [],
+  floats: [],
+
+  stars: [],
+  trees: []
+};
+
+// ============================================================
+// SCENERY
+// ============================================================
+function initScenery() {
+  game.stars = [];
+  game.trees = [];
+
+  for (let i = 0; i < 90; i++) {
+    game.stars.push({
+      nx: Math.random(),
+      ny: Math.random() * 0.55,
+      size: 0.4 + Math.random() * 1.8,
+      twinkle: Math.random() * PI2,
+      speed: 0.015 + Math.random() * 0.04
+    });
+  }
+
+  // Дальний лес
+  for (let i = 0; i < 8; i++) {
+    game.trees.push({
+      nx: (i / 8) + Math.random() * 0.08,
+      ny: 0.58,
+      w: 45 + Math.random() * 35,
+      h: 110 + Math.random() * 70,
+      layer: 0
+    });
+  }
+
+  // Ближний лес
+  for (let i = 0; i < 11; i++) {
+    game.trees.push({
+      nx: (i / 11) + Math.random() * 0.06,
+      ny: 0.67,
+      w: 55 + Math.random() * 45,
+      h: 140 + Math.random() * 90,
+      layer: 1
+    });
+  }
+}
+
+// ============================================================
+// OBJECT GENERATION
+// ============================================================
+function getObjectRadius(type) {
+  if (type === 'owl') return 25;
+  if (type === 'mushroom') return 18;
+  if (type === 'feather') return 16;
+  if (type === 'acorn') return 14;
+  return 13; // berry
+}
+
+function generateObjects(level) {
+  const total = Math.min(12, 5 + level * 2);
+  const types = ['owl', 'mushroom', 'feather', 'acorn', 'berry'];
+  const objs = [];
+
+  for (let i = 0; i < total; i++) {
+    const type = i === 0 ? 'owl' : types[Math.floor(Math.random() * types.length)];
+
+    let nx = 0.5;
+    let ny = 0.5;
+    let ok = false;
+
+    for (let attempt = 0; attempt < 40; attempt++) {
+      nx = 0.08 + Math.random() * 0.84;
+      ny = 0.28 + Math.random() * 0.58;
+
+      ok = true;
+
+      for (const o of objs) {
+        const dx = Math.abs(o.nx - nx);
+        const dy = Math.abs(o.ny - ny);
+
+        if (dx < 0.09 && dy < 0.12) {
+          ok = false;
+          break;
+        }
+      }
+
+      if (ok) break;
+    }
+
+    objs.push({
+      nx,
+      ny,
+      type,
+      r: getObjectRadius(type),
+      found: false,
+      pulse: Math.random() * PI2
+    });
+  }
+
+  return objs;
+}
+
+// ============================================================
+// UI
+// ============================================================
+function updateHUD() {
+  levelVal.textContent = game.level;
+  foundVal.textContent = game.found + ' / ' + game.total;
+  timeVal.textContent = Math.max(0, Math.ceil(game.time));
+  scoreVal.textContent = game.score;
+}
+
+function hideAllMenus() {
+  startMenu.classList.add('hidden');
+  winMenu.classList.add('hidden');
+  loseMenu.classList.add('hidden');
+}
+
+// ============================================================
+// EFFECTS
+// ============================================================
+function addFloat(x, y, text, color = '#fff', size = 20) {
+  game.floats.push({
+    x,
+    y,
+    text,
+    color,
+    size,
+    life: 1,
+    vy: -55
+  });
+}
+
+function addBurst(x, y, color, count = 14) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * PI2;
+    const speed = 60 + Math.random() * 170;
+
+    game.particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 40,
+      life: 1,
+      size: 2 + Math.random() * 4,
+      color
+    });
+  }
+}
+
+// ============================================================
+// GAME FLOW
+// ============================================================
+function startLevel(level) {
+  game.level = level;
+  game.objects = generateObjects(level);
+  game.total = game.objects.length;
+  game.found = 0;
+
+  game.maxTime = Math.max(38, 42 + game.total * 2.2 - level * 1.5);
+  game.time = game.maxTime;
+
+  game.lightRadius = Math.max(88, 155 - (level - 1) * 8);
+
+  game.particles = [];
+  game.floats = [];
+
+  game.playing = true;
+
+  hideAllMenus();
+  updateHUD();
+}
+
+function newGame() {
+  game.score = 0;
+  startLevel(1);
+  beginLoop();
+}
+
+function nextLevel() {
+  startLevel(game.level + 1);
+  beginLoop();
+}
+
+function levelComplete() {
+  game.playing = false;
+
+  const bonus = Math.floor(game.time * 12);
+  game.score += bonus;
+
+  winLevel.textContent = game.level;
+  winBonus.textContent = bonus;
+  winScore.textContent = game.score;
+
+  updateHUD();
+  SFX.win();
+
+  winMenu.classList.remove('hidden');
+}
+
+function gameOver() {
+  game.playing = false;
+
+  loseLevel.textContent = game.level;
+  loseScore.textContent = game.score;
+
+  SFX.lose();
+
+  loseMenu.classList.remove('hidden');
+}
+
+function beginLoop() {
+  if (game.rafId) cancelAnimationFrame(game.rafId);
+
+  game.lastTime = performance.now();
+  game.rafId = requestAnimationFrame(loop);
+}
+
+// ============================================================
+// COLLECTION
+// ============================================================
+function tryCollect(px, py) {
+  if (!game.playing) return;
+
+  for (const obj of game.objects) {
+    if (obj.found) continue;
+
+    const x = obj.nx * W;
+    const y = obj.ny * H;
+
+    const dist = Math.hypot(px - x, py - y);
+
+    if (dist < obj.r + 20) {
+      obj.found = true;
+      game.found++;
+
+      const points = 100 + game.level * 15;
+      game.score += points;
+
+      addFloat(x, y - 28, '+' + points, '#ffd36b', 22);
+      addBurst(x, y, '#8ee7ff', 16);
+
+      SFX.collect();
+      updateHUD();
+
+      if (game.found >= game.total) {
+        levelComplete();
+      }
+
+      return;
+    }
+  }
+}
+
+// ============================================================
+// UPDATE
+// ============================================================
+function update(dt) {
+  if (!game.playing) return;
+
+  game.time -= dt;
+
+  if (game.time <= 0) {
+    game.time = 0;
+    updateHUD();
+    gameOver();
+    return;
+  }
+
+  // Звёзды
+  for (const s of game.stars) {
+    s.twinkle += s.speed * dt * 60;
+  }
+
+  // Частицы
+  for (let i = game.particles.length - 1; i >= 0; i--) {
+    const p = game.particles[i];
+
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 220 * dt;
+    p.life -= dt * 1.35;
+
+    if (p.life <= 0) {
+      game.particles.splice(i, 1);
+    }
+  }
+
+  // Текст
+  for (let i = game.floats.length - 1; i >= 0; i--) {
+    const f = game.floats[i];
+
+    f.y += f.vy * dt;
+    f.life -= dt * 0.85;
+
+    if (f.life <= 0) {
+      game.floats.splice(i, 1);
+    }
+  }
+
+  updateHUD();
+}
+
+// ============================================================
+// DRAWING HELPERS
+// ============================================================
+function drawTree(x, baseY, w, h, color) {
+  ctx.fillStyle = color;
+
+  // Ствол
+  ctx.fillRect(x - w * 0.08, baseY - h * 0.28, w * 0.16, h * 0.28);
+
+  // Крона
+  for (let i = 0; i < 3; i++) {
+    const ty = baseY - h * 0.28 - i * h * 0.22;
+    const tw = w * (1 - i * 0.22);
+
+    ctx.beginPath();
+    ctx.moveTo(x - tw / 2, ty);
+    ctx.lineTo(x + tw / 2, ty);
+    ctx.lineTo(x, ty - h * 0.36);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawOwl(x, y, r, pulse) {
+  const bob = Math.sin(pulse) * 2;
+
+  ctx.save();
+  ctx.translate(x, y + bob);
+
+  // Тело
+  ctx.fillStyle = '#6b4b35';
+  ctx.beginPath();
+  ctx.ellipse(0, 4, r * 0.75, r * 0.9, 0, 0, PI2);
+  ctx.fill();
+
+  // Голова
+  ctx.fillStyle = '#7a5940';
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.45, r * 0.62, 0, PI2);
+  ctx.fill();
+
+  // Уши
+  ctx.fillStyle = '#5a3d2b';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.45, -r * 0.85);
+  ctx.lineTo(-r * 0.18, -r * 1.15);
+  ctx.lineTo(-r * 0.05, -r * 0.75);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(r * 0.45, -r * 0.85);
+  ctx.lineTo(r * 0.18, -r * 1.15);
+  ctx.lineTo(r * 0.05, -r * 0.75);
+  ctx.closePath();
+  ctx.fill();
+
+  // Глаза
+  ctx.fillStyle = '#ffd84d';
+  ctx.beginPath();
+  ctx.arc(-r * 0.23, -r * 0.48, r * 0.20, 0, PI2);
+  ctx.arc(r * 0.23, -r * 0.48, r * 0.20, 0, PI2);
+  ctx.fill();
+
+  ctx.fillStyle = '#1b1208';
+  ctx.beginPath();
+  ctx.arc(-r * 0.20, -r * 0.48, r * 0.08, 0, PI2);
+  ctx.arc(r * 0.26, -r * 0.48, r * 0.08, 0, PI2);
+  ctx.fill();
+
+  // Клюв
+  ctx.fillStyle = '#ffaa3d';
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.32);
+  ctx.lineTo(-r * 0.10, -r * 0.18);
+  ctx.lineTo(r * 0.10, -r * 0.18);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawMushroom(x, y, r, pulse) {
+  const bob = Math.sin(pulse * 0.8) * 1.5;
+
+  ctx.save();
+  ctx.translate(x, y + bob);
+
+  // Ножка
+  ctx.fillStyle = '#f4ead5';
+  ctx.beginPath();
+  ctx.roundRect
+    ? ctx.roundRect(-r * 0.22, -r * 0.05, r * 0.44, r * 0.85, r * 0.12)
+    : ctx.rect(-r * 0.22, -r * 0.05, r * 0.44, r * 0.85);
+  ctx.fill();
+
+  // Шляпка
+  ctx.fillStyle = '#e84545';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.12, r * 0.78, r * 0.48, 0, Math.PI, 0);
+  ctx.fill();
+
+  // Пятна
+  ctx.fillStyle = '#fff6e8';
+  ctx.beginPath();
+  ctx.arc(-r * 0.32, -r * 0.26, r * 0.10, 0, PI2);
+  ctx.arc(r * 0.18, -r * 0.34, r * 0.08, 0, PI2);
+  ctx.arc(r * 0.38, -r * 0.16, r * 0.06, 0, PI2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawFeather(x, y, r, pulse) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.sin(pulse * 0.5) * 0.18 - 0.35);
+
+  ctx.fillStyle = '#bfefff';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.32, r * 0.95, 0, 0, PI2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#76c7e8';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.85);
+  ctx.lineTo(0, r * 0.85);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.10, -r * 0.15, r * 0.10, r * 0.45, 0, 0, PI2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawAcorn(x, y, r, pulse) {
+  const bob = Math.sin(pulse * 0.7) * 1.2;
+
+  ctx.save();
+  ctx.translate(x, y + bob);
+
+  // Орех
+  ctx.fillStyle = '#c98a4b';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.15, r * 0.48, r * 0.62, 0, 0, PI2);
+  ctx.fill();
+
+  // Шапочка
+  ctx.fillStyle = '#6f4425';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.32, r * 0.55, r * 0.25, 0, 0, PI2);
+  ctx.fill();
+
+  // Хвостик
+  ctx.strokeStyle = '#4f2f1b';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.52);
+  ctx.lineTo(0, -r * 0.72);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawBerry(x, y, r, pulse) {
+  const bob = Math.sin(pulse * 0.9) * 1.3;
+
+  ctx.save();
+  ctx.translate(x, y + bob);
+
+  ctx.fillStyle = '#8e44ad';
+  ctx.beginPath();
+  ctx.arc(-r * 0.25, r * 0.10, r * 0.34, 0, PI2);
+  ctx.arc(r * 0.22, r * 0.05, r * 0.36, 0, PI2);
+  ctx.arc(0, -r * 0.22, r * 0.32, 0, PI2);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(255,255,255,.35)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.30, -r * 0.02, r * 0.08, 0, PI2);
+  ctx.arc(r * 0.14, -r * 0.30, r * 0.07, 0, PI2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawObject(obj) {
+  const x = obj.nx * W;
+  const y = obj.ny * H;
+  const pulse = obj.pulse + performance.now() * 0.002;
+
+  if (obj.type === 'owl') drawOwl(x, y, obj.r, pulse);
+  else if (obj.type === 'mushroom') drawMushroom(x, y, obj.r, pulse);
+  else if (obj.type === 'feather') drawFeather(x, y, obj.r, pulse);
+  else if (obj.type === 'acorn') drawAcorn(x, y, obj.r, pulse);
+  else drawBerry(x, y, obj.r, pulse);
+}
+
+// ============================================================
+// MAIN DRAW
+// ============================================================
+function draw() {
+  // Небо
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#070b1d');
+  sky.addColorStop(0.45, '#101836');
+  sky.addColorStop(1, '#151b28');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // Звёзды
+  for (const s of game.stars) {
+    const alpha = 0.25 + Math.abs(Math.sin(s.twinkle)) * 0.75;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(s.nx * W, s.ny * H, s.size, 0, PI2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Луна
+  const moonX = W * 0.82;
+  const moonY = H * 0.16;
+  const moonR = Math.max(28, Math.min(W, H) * 0.045);
+
+  ctx.save();
+  ctx.shadowBlur = 50;
+  ctx.shadowColor = 'rgba(255,250,220,.55)';
+  ctx.fillStyle = '#fff4c9';
+  ctx.beginPath();
+  ctx.arc(moonX, moonY, moonR, 0, PI2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle = 'rgba(190,180,140,.35)';
+  ctx.beginPath();
+  ctx.arc(moonX - moonR * 0.28, moonY - moonR * 0.12, moonR * 0.16, 0, PI2);
+  ctx.arc(moonX + moonR * 0.22, moonY + moonR * 0.26, moonR * 0.11, 0, PI2);
+  ctx.arc(moonX + moonR * 0.05, moonY - moonR * 0.35, moonR * 0.08, 0, PI2);
+  ctx.fill();
+
+  // Деревья дальнего слоя
+  for (const t of game.trees) {
+    if (t.layer !== 0) continue;
+    drawTree(t.nx * W, t.ny * H, t.w, t.h, '#0b1422');
+  }
+
+  // Земля
+  const groundY = H * 0.72;
+  const groundGrad = ctx.createLinearGradient(0, groundY, 0, H);
+  groundGrad.addColorStop(0, '#172516');
+  groundGrad.addColorStop(1, '#09110b');
+  ctx.fillStyle = groundGrad;
+  ctx.fillRect(0, groundY, W, H - groundY);
+
+  ctx.fillStyle = 'rgba(120,255,160,.06)';
+  ctx.fillRect(0, groundY, W, 4);
+
+  // Деревья ближнего слоя
+  for (const t of game.trees) {
+    if (t.layer !== 1) continue;
+    drawTree(t.nx * W, t.ny * H, t.w, t.h, '#102031');
+  }
+
+  // Спрятанные предметы
+  for (const obj of game.objects) {
+    if (!obj.found) {
+      drawObject(obj);
+    }
+  }
+
+  // Темнота с дыркой фонарика
+  const mx = game.mouse.x;
+  const my = game.mouse.y;
+  const lr = game.lightRadius;
+
+  const dark = ctx.createRadialGradient(mx, my, lr * 0.18, mx, my, lr * 1.65);
+  dark.addColorStop(0, 'rgba(2,4,12,0)');
+  dark.addColorStop(0.48, 'rgba(2,4,12,0.28)');
+  dark.addColorStop(0.78, 'rgba(2,4,12,0.78)');
+  dark.addColorStop(1, 'rgba(2,4,12,0.96)');
+
+  ctx.fillStyle = dark;
+  ctx.fillRect(0, 0, W, H);
+
+  // Тёплое свечение фонарика
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  const glow = ctx.createRadialGradient(mx, my, 0, mx, my, lr * 0.95);
+  glow.addColorStop(0, 'rgba(255,225,140,.24)');
+  glow.addColorStop(0.45, 'rgba(255,185,85,.10)');
+  glow.addColorStop(1, 'rgba(255,150,50,0)');
+
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+
+  // Найденные предметы — мягкие маячки
+  for (const obj of game.objects) {
+    if (!obj.found) continue;
+
+    const x = obj.nx * W;
+    const y = obj.ny * H;
+    const pulse = 0.45 + Math.abs(Math.sin(performance.now() * 0.003 + obj.pulse)) * 0.55;
+
+    ctx.save();
+    ctx.globalAlpha = 0.22 + pulse * 0.28;
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = '#ffd36b';
+    ctx.fillStyle = '#ffe08a';
+    ctx.beginPath();
+    ctx.arc(x, y, 4.5, 0, PI2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Частицы
+  for (const p of game.particles) {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, PI2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Всплывающий текст
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (const f of game.floats) {
+    ctx.globalAlpha = Math.max(0, f.life);
+    ctx.fillStyle = f.color;
+    ctx.font = 'bold ' + f.size + 'px Segoe UI, Arial';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(0,0,0,.7)';
+    ctx.fillText(f.text, f.x, f.y);
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+}
+
+// ============================================================
+// LOOP
+// ============================================================
+function loop(now) {
+  if (!game.playing) return;
+
+  let dt = (now - game.lastTime) / 1000;
+  if (!isFinite(dt) || dt < 0) dt = 0;
+  if (dt > 0.05) dt = 0.05;
+
+  game.lastTime = now;
+
+  update(dt);
+  draw();
+
+  game.rafId = requestAnimationFrame(loop);
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+function setPointer(x, y) {
+  game.mouse.x = Math.max(0, Math.min(W, x));
+  game.mouse.y = Math.max(0, Math.min(H, y));
+  game.mouse.init = true;
+}
+
+window.addEventListener('mousemove', (e) => {
+  setPointer(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('mousedown', (e) => {
+  setPointer(e.clientX, e.clientY);
+  tryCollect(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  setPointer(t.clientX, t.clientY);
+  tryCollect(t.clientX, t.clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  setPointer(t.clientX, t.clientY);
+}, { passive: false });
+
+// Пробел не должен скроллить страницу или "нажимать" фокусные кнопки
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+  }
+});
+
+// ============================================================
+// BUTTONS
+// ============================================================
+btnStart.addEventListener('click', () => {
+  btnStart.blur();
+  initAudio();
+  SFX.click();
+  newGame();
+});
+
+btnNext.addEventListener('click', () => {
+  btnNext.blur();
+  initAudio();
+  SFX.click();
+  nextLevel();
+});
+
+btnRestart.addEventListener('click', () => {
+  btnRestart.blur();
+  initAudio();
+  SFX.click();
+  newGame();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+resize();
+initScenery();
+updateHUD();
+
+// Первая статичная отрисовка для фона под меню
+draw();
+</script>
+
+</body>
+</html>
